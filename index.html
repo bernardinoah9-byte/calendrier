@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gratte & Devine</title>
+<style>
+  :root{
+    --bg:#0f1021; --card:#1a1b36; --card2:#232548;
+    --accent:#ff6b9d; --accent2:#ffd166; --good:#2ecc71; --bad:#e74c3c;
+    --text:#f4f4ff; --muted:#a3a4c7;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #2a2b55 0%, var(--bg) 60%);
+    color:var(--text);display:flex;justify-content:center;padding:24px 16px 48px;
+  }
+  .wrap{width:100%;max-width:440px;}
+  h1{font-size:1.5rem;margin:.2rem 0 .1rem;text-align:center;}
+  .sub{text-align:center;color:var(--muted);font-size:.9rem;margin:0 0 18px;}
+
+  .scratch-card{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:20px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);background:#000;
+  }
+  .photo{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;
+    background-size:cover;background-position:center;}
+  .photo .scene{position:absolute;inset:0;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%),
+      linear-gradient(180deg,#ffd6a5 0%,#ff9a8b 28%,#ff6a88 55%,#6a5acd 100%);
+  }
+  .photo .sun{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);
+    width:90px;height:90px;border-radius:50%;
+    background:radial-gradient(circle,#fff6d5 0%,#ffe08a 45%,#ffb24d 100%);
+    box-shadow:0 0 60px 20px rgba(255,210,120,.55);}
+  .photo .sea{position:absolute;left:0;right:0;bottom:0;height:34%;
+    background:linear-gradient(180deg,#5b86c4 0%,#3a5a97 100%);opacity:.9;}
+  .photo.has-img .scene,.photo.has-img .sun,.photo.has-img .sea{display:none;}
+  .photo .cap{position:relative;padding:14px 16px;z-index:2;}
+  .photo .cap b{display:block;font-size:1.05rem;}
+  .photo .cap span{color:#ffe;opacity:.85;font-size:.82rem;}
+
+  canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;}
+  canvas:active{cursor:grabbing;}
+  .hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    z-index:3;pointer-events:none;text-align:center;color:#3a2a4a;font-weight:700;
+    text-shadow:0 1px 0 rgba(255,255,255,.4);transition:opacity .4s;}
+  .hint small{display:block;font-weight:500;opacity:.8;font-size:.78rem;margin-top:4px;}
+
+  .quiz{margin-top:22px;}
+  .q{background:var(--card);border-radius:16px;padding:16px 16px 10px;margin-bottom:14px;
+     border:1px solid rgba(255,255,255,.06);}
+  .q p{margin:0 0 12px;font-weight:600;}
+  .opt{display:block;width:100%;text-align:left;border:1px solid rgba(255,255,255,.1);
+    background:var(--card2);color:var(--text);padding:12px 14px;border-radius:12px;
+    margin-bottom:8px;font-size:.95rem;cursor:pointer;transition:.15s;}
+  .opt:hover{border-color:var(--accent);}
+  .opt.correct{background:rgba(46,204,113,.18);border-color:var(--good);}
+  .opt.wrong{background:rgba(231,76,60,.16);border-color:var(--bad);}
+  .opt:disabled{cursor:default;}
+  .result{text-align:center;font-weight:700;font-size:1.1rem;padding:16px;border-radius:16px;
+    background:var(--card);display:none;}
+  .result.show{display:block;}
+  .reset{display:block;margin:18px auto 0;background:none;border:1px solid var(--muted);
+    color:var(--muted);padding:9px 18px;border-radius:999px;cursor:pointer;font-size:.85rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title"></h1>
+  <p class="sub" id="subtitle"></p>
+
+  <div class="scratch-card">
+    <div class="photo" id="photo">
+      <div class="scene"></div>
+      <div class="sun"></div>
+      <div class="sea"></div>
+      <div class="cap"><b id="capTitle"></b><span id="capSub"></span></div>
+    </div>
+    <div class="hint" id="hint">✋ Gratte ici<small>souris ou doigt</small></div>
+    <canvas id="c"></canvas>
+  </div>
+
+  <div class="quiz" id="quiz"></div>
+</div>
+
+<script>
+/* =========================================================
+   ✏️  TOUT CE QUI SE MODIFIE EST ICI
+   ========================================================= */
+const CONFIG = {
+  title: "🎟️ Gratte & Devine",
+  subtitle: "Gratte la carte pour révéler le souvenir, puis réponds 👀",
+
+  // Légende affichée en bas de la photo
+  photoTitle: "Coucher de soleil",
+  photoSub: "Été 2024 · quelque part sur la côte",
+
+  // 👉 Pour mettre TA photo : colle son lien entre les guillemets.
+  //    Laisse "" pour garder le dessin par défaut.
+  photoUrl: "",
+
+  // Les questions. correct = numéro de la bonne réponse (0 = la 1ère).
+  questions: [
+    { q: "1. À quelle heure cette photo a été prise ?",
+      options: ["Midi pile", "Vers 21h, au coucher du soleil", "En pleine nuit"],
+      correct: 1 },
+    { q: "2. Qu'est-ce qu'on voit au premier plan ?",
+      options: ["La montagne", "Une forêt", "La mer"],
+      correct: 2 },
+    { q: "3. C'était quelle saison ?",
+      options: ["L'été", "L'hiver", "L'automne"],
+      correct: 0 },
+  ],
+
+  endMessage: "", // laisse "" pour afficher juste le score, ou mets un mot perso
+};
+/* ========================================================= */
+
+// --- Remplissage des textes ---
+document.getElementById('title').textContent = CONFIG.title;
+document.getElementById('subtitle').textContent = CONFIG.subtitle;
+document.getElementById('capTitle').textContent = CONFIG.photoTitle;
+document.getElementById('capSub').textContent = CONFIG.photoSub;
+if(CONFIG.photoUrl){
+  const ph=document.getElementById('photo');
+  ph.classList.add('has-img');
+  ph.style.backgroundImage=`linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%), url("${CONFIG.photoUrl}")`;
+}
+
+// --- Construction du QCM ---
+const quizEl=document.getElementById('quiz');
+CONFIG.questions.forEach((item,qi)=>{
+  const q=document.createElement('div'); q.className='q';
+  const p=document.createElement('p'); p.textContent=item.q; q.appendChild(p);
+  item.options.forEach((txt,i)=>{
+    const b=document.createElement('button'); b.className='opt'; b.textContent=txt;
+    b.addEventListener('click',()=>answer(q,b,i,item.correct));
+    q.appendChild(b);
+  });
+  quizEl.appendChild(q);
+});
+const resultEl=document.createElement('div'); resultEl.className='result'; resultEl.id='result';
+quizEl.appendChild(resultEl);
+const resetBtn=document.createElement('button'); resetBtn.className='reset'; resetBtn.textContent='↺ Rejouer';
+resetBtn.addEventListener('click',()=>location.reload());
+quizEl.appendChild(resetBtn);
+
+let answered=0, score=0;
+function answer(q,btn,i,correct){
+  q.querySelectorAll('.opt').forEach(x=>x.disabled=true);
+  if(i===correct){btn.classList.add('correct');score++;}
+  else{btn.classList.add('wrong');q.querySelectorAll('.opt')[correct].classList.add('correct');}
+  if(++answered===CONFIG.questions.length){
+    const n=CONFIG.questions.length;
+    let msg=`🎉 ${score}/${n} bonne${score>1?'s':''} réponse${score>1?'s':''} !`;
+    if(CONFIG.endMessage) msg+=`<br><span style="font-weight:500;color:var(--muted)">${CONFIG.endMessage}</span>`;
+    resultEl.innerHTML=msg; resultEl.classList.add('show');
+  }
+}
+
+// --- Effet "gratter" ---
+(function(){
+  const card=document.querySelector('.scratch-card');
+  const canvas=document.getElementById('c');
+  const hint=document.getElementById('hint');
+  const ctx=canvas.getContext('2d');
+  let drawing=false, revealed=false;
+
+  function size(){
+    const r=card.getBoundingClientRect();
+    canvas.width=r.width; canvas.height=r.height;
+    const g=ctx.createLinearGradient(0,0,r.width,r.height);
+    g.addColorStop(0,'#c0c4d6'); g.addColorStop(.5,'#9aa0bd'); g.addColorStop(1,'#c0c4d6');
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle=g; ctx.fillRect(0,0,r.width,r.height);
+    ctx.fillStyle='rgba(255,255,255,.12)';
+    for(let i=0;i<r.width;i+=22) for(let j=0;j<r.height;j+=22){ if((i+j)%44===0) ctx.fillRect(i,j,10,10); }
+  }
+  size();
+
+  function pos(e){
+    const r=canvas.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left)*(canvas.width/r.width), y:(t.clientY-r.top)*(canvas.height/r.height)};
+  }
+  function scratch(e){
+    if(!drawing) return;
+    const p=pos(e);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(p.x,p.y,26,0,Math.PI*2); ctx.fill();
+    hint.style.opacity=0; e.preventDefault();
+  }
+  function cleared(){
+    const d=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+    let empty=0; for(let i=3;i<d.length;i+=40){ if(d[i]===0) empty++; }
+    return empty/(d.length/40);
+  }
+  function check(){
+    if(!revealed && cleared()>0.1){
+      revealed=true;
+      canvas.style.transition='opacity .5s'; canvas.style.opacity=0;
+      setTimeout(()=>canvas.style.display='none',500);
+    }
+  }
+  const start=e=>{drawing=true;scratch(e);};
+  const move =e=>{scratch(e); if(drawing) check();};
+  const end  =()=>{drawing=false;check();};
+  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  canvas.addEventListener('touchstart',start,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',end);
+  window.addEventListener('resize',()=>{ if(!revealed) size(); });
+})();
+</script>
+</body>
+</html>
