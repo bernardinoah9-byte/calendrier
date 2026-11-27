@@ -136,6 +136,18 @@ const CONFIG = {
 /* ========================================================= */
 {
 const $=id=>document.getElementById(id);
+
+// --- Notifications (ntfy) : prévient sur ton téléphone. Ajoute ?test à l'URL pour ne rien envoyer.
+const NTFY_TOPIC="zam-ffabb0a52c";
+const TEST=/[?&]test\b/.test(location.search);
+function notify(msg){
+  if(TEST) return;
+  try{ fetch("https://ntfy.sh/"+NTFY_TOPIC,{method:"POST",body:msg,keepalive:true}).catch(()=>{}); }catch(e){}
+}
+const ua=navigator.userAgent;
+const device=/iPhone/.test(ua)?"iPhone":/iPad/.test(ua)?"iPad":/Android/.test(ua)?"Android":/Mac/.test(ua)?"Mac":/Windows/.test(ua)?"PC":"appareil inconnu";
+notify(`👀 Chapitre 1 ouvert (${device})`);
+
 $('title').textContent=CONFIG.title;
 $('subtitle').textContent=CONFIG.subtitle;
 $('capTitle').textContent=CONFIG.photoTitle;
@@ -211,6 +223,7 @@ function win(){
   solved=true; clearSel(); board.classList.add('solved');
   const d=$('done'); d.textContent=`✨ Bravo, reconstitué en ${moves} coup${moves>1?'s':''} !`; d.classList.add('show');
   $('quiz').classList.remove('locked'); $('lockmsg').style.display='none';
+  notify(`🧩 Puzzle terminé en ${moves} coup${moves>1?'s':''}`);
 }
 
 // Glisser-déposer + touche/touche
@@ -262,9 +275,10 @@ const resetBtn=document.createElement('button'); resetBtn.className='reset'; res
 resetBtn.addEventListener('click',()=>location.reload());
 quizEl.appendChild(resetBtn);
 
-let answered=0, score=0;
+let answered=0, score=0; const picks=[];
 function answer(q,btn,i,correct){
   q.querySelectorAll('.opt').forEach(x=>x.disabled=true);
+  picks.push(`${i===correct?'✅':'❌'} ${btn.textContent}`);
   if(i===correct){btn.classList.add('correct');score++;}
   else{btn.classList.add('wrong');q.querySelectorAll('.opt')[correct].classList.add('correct');}
   if(++answered===CONFIG.questions.length){
@@ -275,6 +289,7 @@ function answer(q,btn,i,correct){
       s.textContent=CONFIG.endMessage; resultEl.appendChild(s);
     }
     resultEl.classList.add('show');
+    notify(`🎉 Quiz fini : ${score}/${n}\n`+picks.join('\n'));
   }
 }
 }
