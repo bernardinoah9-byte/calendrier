@@ -140,13 +140,18 @@ const $=id=>document.getElementById(id);
 // --- Notifications (ntfy) : prévient sur ton téléphone. Ajoute ?test à l'URL pour ne rien envoyer.
 const NTFY_TOPIC="zam-ffabb0a52c";
 const TEST=/[?&]test\b/.test(location.search);
-function notify(msg){
+// Journal des visites dans le Google Sheet « Calendrier – visites »
+const LOG_URL="https://script.google.com/macros/s/AKfycbzhnKT9sXuU3vCRJWV9NOeHOHZL2NzuojBeI9cJrMS-Rq_Yo4DfKbVezhmf3gctY3XC/exec";
+const CHAPITRE="1";
+function notify(msg,event,detail){
   if(TEST) return;
   try{ fetch("https://ntfy.sh/"+NTFY_TOPIC,{method:"POST",body:msg,keepalive:true}).catch(()=>{}); }catch(e){}
+  try{ fetch(LOG_URL,{method:"POST",mode:"no-cors",keepalive:true,
+    body:JSON.stringify({chapitre:CHAPITRE,event:event,device:device,detail:detail||""})}).catch(()=>{}); }catch(e){}
 }
 const ua=navigator.userAgent;
 const device=/iPhone/.test(ua)?"iPhone":/iPad/.test(ua)?"iPad":/Android/.test(ua)?"Android":/Mac/.test(ua)?"Mac":/Windows/.test(ua)?"PC":"appareil inconnu";
-notify(`👀 Chapitre 1 ouvert (${device})`);
+notify(`👀 Chapitre 1 ouvert (${device})`,"Ouverture");
 
 $('title').textContent=CONFIG.title;
 $('subtitle').textContent=CONFIG.subtitle;
@@ -223,7 +228,7 @@ function win(){
   solved=true; clearSel(); board.classList.add('solved');
   const d=$('done'); d.textContent=`✨ Bravo, reconstitué en ${moves} coup${moves>1?'s':''} !`; d.classList.add('show');
   $('quiz').classList.remove('locked'); $('lockmsg').style.display='none';
-  notify(`🧩 Puzzle terminé en ${moves} coup${moves>1?'s':''}`);
+  notify(`🧩 Puzzle terminé en ${moves} coup${moves>1?'s':''}`,"Puzzle terminé",`${moves} coups`);
 }
 
 // Glisser-déposer + touche/touche
@@ -289,7 +294,7 @@ function answer(q,btn,i,correct){
       s.textContent=CONFIG.endMessage; resultEl.appendChild(s);
     }
     resultEl.classList.add('show');
-    notify(`🎉 Quiz fini : ${score}/${n}\n`+picks.join('\n'));
+    notify(`🎉 Quiz fini : ${score}/${n}\n`+picks.join('\n'),"Quiz fini",`${score}/${n} · `+picks.join(' | '));
   }
 }
 }
